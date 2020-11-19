@@ -42,7 +42,7 @@ EPS_DECAY = 1e6
 TARGET_UPDATE = 10000
 LEARNING_RATE = 0.0001
 REWARD_BUFFER_SIZE = 100
-MEMORY_SIZE = 50000
+MEMORY_SIZE = 100000
 NUM_EPISODES = 30000000
 EPISODE_STEP_LIMIT = 10000
 
@@ -159,11 +159,11 @@ class Agent_DQN(Agent):
         """
         ###########################
         # YOUR IMPLEMENTATION HERE #
-        if len(self.memory) > MEMORY_SIZE:
+        if len(self.memory) >= 50000:
             self.memory.pop(0)
         self.memory.append(Transition(*args))
 
-        if(len(self.memory)%500==0):
+        if(len(self.memory)%500==0 or len(self.memory)>= 50000):
             print("Memory size : ", len(self.memory))
         ###########################
         
