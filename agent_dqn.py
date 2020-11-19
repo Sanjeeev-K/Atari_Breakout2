@@ -45,7 +45,7 @@ REWARD_BUFFER_SIZE = 100
 MEMORY_SIZE = 50000
 NUM_EPISODES = 30000000
 EPISODE_STEP_LIMIT = 10000
-# FLAG = 0
+FLAG = 0
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 writer = SummaryWriter()
@@ -70,7 +70,7 @@ class Agent_DQN(Agent):
         self.env = env
         self.n_actions = env.env.action_space.n
         self.policy_net = DQN(4, self.n_actions).to(device)
-        # self.target_net = DQN(4, self.n_actions).to(device)
+        self.target_net = DQN(4, self.n_actions).to(device)
         # self.policy_net.load_state_dict(torch.load("best_weights_model.pt"))
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.eps_threshold = EPS_START
@@ -80,6 +80,7 @@ class Agent_DQN(Agent):
         self.max_reward_so_far = 0
         self.mean = 0
         self.reward_buffer = []
+        self.flag = 0
         # self.target_net.eval()
 
         self.test_mean_reward = 0
@@ -126,7 +127,7 @@ class Agent_DQN(Agent):
             n_actions = self.env.action_space.n
             sample = random.random()
             # self.eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
-            self.eps_threshold = self.eps_threshold -  (self.eps_start - self.eps_end) / self.eps_decay
+            self.eps_threshold = self.eps_threshold -  (EPS_START - EPS_END) / EPS_DECAY
             steps_done += 1
             # print("Steps after increment ", steps_done)
             if sample > self.eps_threshold:
@@ -230,11 +231,11 @@ class Agent_DQN(Agent):
                 # Perform one step of the optimization (on the target network)
                 # optimize step start
                 # print("Memory Size", len(self.memory))
-
-                if len(self.memory) > 10000:
-                    # if FLAG==0:
-                        # print("Crossed 10000")
-                        # FLAG = 1
+                # print("Completed 10,000 steps")
+                if len(self.memory) > 10000 and len(self.memory)%4 ==0:
+                    if self.flag==0:
+                        print("Crossed 10000")
+                        self.flag = 1
                     batch = self.replay_buffer(BATCH_SIZE)
 
                     # 'Transition',('state', 'action', 'next_state', 'reward', 'done'))
@@ -246,7 +247,7 @@ class Agent_DQN(Agent):
 
                     state_action_values = self.policy_net(state_batch.to(device)).gather(1,action_batch[:,None].to(device)).squeeze(1)
                     
-                    q_max = self.target_net(next_state_batch.to(device)).max(1)[0].detach() * self.gamma
+                    q_max = self.target_net(next_state_batch.to(device)).max(1)[0].detach() * GAMMA
                     
                     q_max[done_batch] = 0
 
@@ -265,9 +266,9 @@ class Agent_DQN(Agent):
 
                 if done:
                     if len(self.reward_buffer)>= REWARD_BUFFER_SIZE:
-                        reward_buffer.pop(0)
-                    reward_buffer.append(episode_Reward)
-                    mean_reward = np.mean(reward_buffer)
+                        self.reward_buffer.pop(0)
+                    self.reward_buffer.append(episode_Reward)
+                    mean_reward = np.mean(self.reward_buffer)
                     break
             
             
@@ -286,9 +287,9 @@ class Agent_DQN(Agent):
             
             # To calculate mean reward
             if i_episode % 100 == 0:
-                mean_reward = sum(reward_buffer)/100
+                mean_reward = sum(self.reward_buffer)/100
                 print("*****************")
-                print("TRAIN Mean Reward after ", i_episode, " episodes is ", mean_reward)
+                print("TRAIN Mean Reward after ", i_episode, " episodes is ", mean_reward, " Epsilon ", self.eps_threshold)
             if i_episode % 500 == 0:
                 torch.save(self.policy_net.state_dict(), "saved_model.pt")
                 print("Saved Model after ",i_episode, " episodes")
