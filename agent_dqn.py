@@ -163,8 +163,8 @@ class Agent_DQN(Agent):
             self.memory.pop(0)
         self.memory.append(self.transition)
 
-        if(len(self.memory)%500==0 or len(self.memory)>= 50000):
-            print("Memory size : ", len(self.memory))
+        # if(len(self.memory)%500==0 or len(self.memory)>= 50000):
+        #     print("Memory size : ", len(self.memory))
         ###########################
         
         
