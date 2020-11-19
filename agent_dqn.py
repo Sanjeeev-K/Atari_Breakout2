@@ -81,7 +81,7 @@ class Agent_DQN(Agent):
         self.flag = 0
         self.steps_done = 0
         # self.target_net.eval()
-
+        self.transition = []
         self.test_mean_reward = 0
 
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr = LEARNING_RATE)
@@ -149,7 +149,7 @@ class Agent_DQN(Agent):
         ###########################
         # return action
     
-    def push(self, *args):
+    def push(self):
         """ You can add additional arguments as you need. 
         Push new data to buffer and remove the old one if the buffer is full.
         
@@ -161,7 +161,7 @@ class Agent_DQN(Agent):
         # YOUR IMPLEMENTATION HERE #
         if len(self.memory) >= 50000:
             self.memory.pop(0)
-        self.memory.append(Transition(*args))
+        self.memory.append(self.transition)
 
         if(len(self.memory)%500==0 or len(self.memory)>= 50000):
             print("Memory size : ", len(self.memory))
@@ -211,7 +211,8 @@ class Agent_DQN(Agent):
                 
 
                 next_state = np.transpose(next_state,(2,0,1))
-                self.push(state, action, next_state, reward, done)
+                self.transition = (state, action, next_state, reward, done)
+                self.push()
 
                 # Move to the next state
                 state = next_state
@@ -233,6 +234,8 @@ class Agent_DQN(Agent):
                     if self.flag==0:
                         print("Crossed 10000")
                         self.flag = 1
+
+
                     batch = self.replay_buffer(BATCH_SIZE)
                     
                     # 'Transition',('state', 'action', 'next_state', 'reward', 'done'))
@@ -244,11 +247,11 @@ class Agent_DQN(Agent):
 
                     state_action_values = self.policy_net(state_batch.to(device)).gather(1,action_batch[:,None].to(device)).squeeze(1)
                     
-                    q_max = self.target_net(next_state_batch.to(device)).max(1)[0].detach() * GAMMA
+                    q_max = self.target_net(next_state_batch.to(device)).max(1)[0].detach()
                     
                     q_max[done_batch] = 0
 
-                    expected_state_action_values = (q_max) + reward_batch
+                    expected_state_action_values = (q_max) * GAMMA + reward_batch
                     #print (state_action_values.double().size())
 
                     #print (expected_state_action_values.double().size())
@@ -273,7 +276,7 @@ class Agent_DQN(Agent):
             
             if(i_episode%500 == 0):
                 env2 = env('BreakoutNoFrameskip-v4', self.args, atari_wrapper=True, test=True)
-                #test(self, env2, total_episodes=100)
+                test(self, env2, total_episodes=100)
                 writer.add_scalar('Test Mean Reward', self.test_mean_reward, i_episode)
                 if self.test_mean_reward > self.max_reward_so_far :
                     torch.save(self.policy_net.state_dict(), "best_weights_model.pt")
@@ -286,7 +289,6 @@ class Agent_DQN(Agent):
             
             # To calculate mean reward
             if i_episode % 100 == 0:
-                mean_reward = sum(self.reward_buffer)/100
                 # print("*****************")
                 print("TRAIN Mean Reward after ", i_episode, " episodes is ", mean_reward, " Epsilon ", self.eps_threshold)
             if i_episode % 500 == 0:
