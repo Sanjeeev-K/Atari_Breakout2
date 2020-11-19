@@ -225,7 +225,9 @@ class Agent_DQN(Agent):
 
 
                 # Update the target network, copying all weights and biases in DQN
+                # print("Steps : ",steps_done)
                 if steps_done % TARGET_UPDATE == 0:
+                    print("**********Updating Target********")
                     self.target_net.load_state_dict(self.policy_net.state_dict())
 
                 # Perform one step of the optimization (on the target network)
@@ -288,12 +290,12 @@ class Agent_DQN(Agent):
             # To calculate mean reward
             if i_episode % 100 == 0:
                 mean_reward = sum(self.reward_buffer)/100
-                print("*****************")
+                # print("*****************")
                 print("TRAIN Mean Reward after ", i_episode, " episodes is ", mean_reward, " Epsilon ", self.eps_threshold)
             if i_episode % 500 == 0:
                 torch.save(self.policy_net.state_dict(), "saved_model.pt")
                 print("Saved Model after ",i_episode, " episodes")
-        # self.env.env.close()
+        self.env.env.close()
         self.writer.close()
         
         ###########################
