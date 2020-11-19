@@ -35,15 +35,16 @@ steps_done = 0
 episode_durations = []
 
 BATCH_SIZE = 32
-GAMMA = 0.9
-EPS_START = 0.95
-EPS_END = 0.05
-EPS_DECAY = 1e4
+GAMMA = 0.99
+EPS_START = 1.00
+EPS_END = 0.01
+EPS_DECAY = 1e6
 TARGET_UPDATE = 10000
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.0001
 REWARD_BUFFER_SIZE = 100
-MEMORY_SIZE = 500000
+MEMORY_SIZE = 50000
 NUM_EPISODES = 30000000
+EPISODE_STEP_LIMIT = 10000
 # FLAG = 0
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -67,17 +68,23 @@ class Agent_DQN(Agent):
         self.memory = []
         self.position = 0
         self.env = env
-        self.policy_net = DQN().to(device)
-        self.target_net = DQN().to(device)
+        self.n_actions = env.env.action_space.n
+        self.policy_net = DQN(4, self.n_actions).to(device)
+        # self.target_net = DQN(4, self.n_actions).to(device)
+        # self.policy_net.load_state_dict(torch.load("best_weights_model.pt"))
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.eps_threshold = EPS_START
         self.args = args
+        self.test_count = 0
+        self.max_reward = 0
         self.max_reward_so_far = 0
+        self.mean = 0
+        self.reward_buffer = []
         # self.target_net.eval()
 
         self.test_mean_reward = 0
 
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr = LEARNING_RATE)
+        self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr = LEARNING_RATE)
         
         if args.test_dqn:
             #you can load your model here
@@ -95,7 +102,7 @@ class Agent_DQN(Agent):
         """
         ###########################
         # YOUR IMPLEMENTATION HERE #
-        self.env.reset()
+        # self.env.reset()
         ###########################
         pass
     
@@ -118,7 +125,8 @@ class Agent_DQN(Agent):
             global steps_done
             n_actions = self.env.action_space.n
             sample = random.random()
-            self.eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
+            # self.eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
+            self.eps_threshold = self.eps_threshold -  (self.eps_start - self.eps_end) / self.eps_decay
             steps_done += 1
             # print("Steps after increment ", steps_done)
             if sample > self.eps_threshold:
@@ -184,7 +192,7 @@ class Agent_DQN(Agent):
         ###########################
         # YOUR IMPLEMENTATION HERE #
 
-        reward_buffer = deque([]) 
+        # reward_buffer = deque([]) 
         current_loss = 0.0
         mean_reward = 0.0
         for i_episode in range(NUM_EPISODES):
@@ -196,10 +204,12 @@ class Agent_DQN(Agent):
             state = np.transpose(state,(2,0,1))
             # state = torch.tensor([state])
             episode_Reward = 0.0
-            for t in count():
+            for t in range (EPISODE_STEP_LIMIT):
                 # Render here
                 # self.env.env.render()
                 action = self.make_action(state, False)
+                # 'Transition',('state', 'action', 'next_state', 'reward', 'done'))
+                    
                 next_state, reward, done, _ = self.env.step(action)
                 episode_Reward += reward
                 
@@ -227,21 +237,22 @@ class Agent_DQN(Agent):
                         # FLAG = 1
                     batch = self.replay_buffer(BATCH_SIZE)
 
+                    # 'Transition',('state', 'action', 'next_state', 'reward', 'done'))
                     state_batch = torch.from_numpy(np.asarray(batch[0]))
                     action_batch = torch.from_numpy(np.asarray(batch[1]))
                     next_state_batch = torch.from_numpy(np.asarray(batch[2]))
-                    reward_batch = torch.from_numpy(np.asarray(batch[3]))
-                    done_batch = torch.from_numpy(np.asarray(batch[4]))
+                    reward_batch = torch.from_numpy(np.asarray(batch[3])).to(device)
+                    done_batch = torch.from_numpy(np.asarray(batch[4])).to(device)
 
                     state_action_values = self.policy_net(state_batch.to(device)).gather(1,action_batch[:,None].to(device)).squeeze(1)
                     
-                    q_max = self.target_net(next_state_batch.to(device)).max(1)[0].detach()
+                    q_max = self.target_net(next_state_batch.to(device)).max(1)[0].detach() * self.gamma
                     
                     q_max[done_batch] = 0
 
-                    expected_state_action_values = (q_max*GAMMA) + reward_batch.to(device)
+                    expected_state_action_values = (q_max) + reward_batch
 
-                    loss = F.smooth_l1_loss(state_action_values.double(), expected_state_action_values.to(device))
+                    loss = F.smooth_l1_loss(state_action_values.double(), expected_state_action_values.double())
                    
                     current_loss = loss
                     # print("Episode : ", i_episode, ", iteration : ",t, " Loss :  ", current_loss, " Steps : ", steps_done," Epsilon : ", self.eps_threshold, " Mean Reward : ", mean_reward)
@@ -253,8 +264,8 @@ class Agent_DQN(Agent):
                     self.optimizer.step()
 
                 if done:
-                    if len(reward_buffer)>= REWARD_BUFFER_SIZE:
-                        reward_buffer.popleft()
+                    if len(self.reward_buffer)>= REWARD_BUFFER_SIZE:
+                        reward_buffer.pop(0)
                     reward_buffer.append(episode_Reward)
                     mean_reward = np.mean(reward_buffer)
                     break

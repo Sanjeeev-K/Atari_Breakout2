@@ -26,6 +26,7 @@ def parse():
 def test(agent, env, total_episodes=30):
     rewards = []
     env.seed(seed)
+    print('In Test')
     for i in range(total_episodes):
         state = env.reset()
         agent.init_game_setting()
@@ -34,6 +35,7 @@ def test(agent, env, total_episodes=30):
 
         #playing one game
         while(not done):
+            # env.render()
             state = np.transpose(state,(2,0,1))
             action = agent.make_action(state, test=True)
             state, reward, done, info = env.step(action)
@@ -42,6 +44,7 @@ def test(agent, env, total_episodes=30):
         rewards.append(episode_reward)
 
 
+    # env.close()
     agent.test_mean_reward = np.mean(rewards)
     print('Run %d episodes'%(total_episodes))
     print('Mean:', np.mean(rewards))

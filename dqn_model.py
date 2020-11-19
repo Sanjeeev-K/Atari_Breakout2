@@ -53,26 +53,26 @@ class DQN(nn.Module):
         # **** START HERE ****************
 
 
-        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=5, stride=3)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=5, stride=2)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=5, stride=1)
-        self.bn3 = nn.BatchNorm2d(64)
+        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=8, stride=4)
+        #self.bn1 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        #self.bn2 = nn.BatchNorm2d(64)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        #self.bn3 = nn.BatchNorm2d(64)
         
         # Number of Linear input connections depends on output of conv2d layers
         # and therefore the input image size, so compute it.
-        def conv2d_size_out(size, kernel_size = 5, stride = 2):
-            return (size - (kernel_size - 1) - 1) // stride  + 1
+        # def conv2d_size_out(size, kernel_size = 5, stride = 2):
+        #     return (size - (kernel_size - 1) - 1) // stride  + 1
         
-        convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(84)))
-        convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(84)))
+        # convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(84)))
+        # convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(84)))
     
         # linear_input_size = convw * convh * 32
-        linear_input_size = 4096
+        linear_input_size = 3136
         # print("Linear input size: ", linear_input_size)
-        self.head_prev = nn.Linear(linear_input_size, 256)
-        self.head_next = nn.Linear(256, num_actions)
+        self.head_prev = nn.Linear(linear_input_size, 512)
+        self.head_next = nn.Linear(512, num_actions)
 
     def forward(self, x):
         """
@@ -101,14 +101,16 @@ class DQN(nn.Module):
         # print(x, type(x))
         x = x.float()/255.0
         # print("x input shape: ", x.shape)
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        #print("x_flatten?: ", (x.view(x.size(0), -1)).shape)
-        # print("x_flatten: ", x.shape)
-        x = F.relu(self.head_prev(x.view(x.size(0), -1)))
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+
+        x = x.view(-1, 3136)
+
+        x = self.head_prev(x)
         # print("After Linear ", x.size())
-        x = self.head_next(x.view(x.size(0), -1))
+        x = F.relu(x)
+        x = self.head_next(x)
         # print("After Linear 2 ", x.size())
         return x
         ###########################
