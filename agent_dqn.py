@@ -31,8 +31,8 @@ np.random.seed(595)
 random.seed(595)
 
 Transition = namedtuple('Transition',('state', 'action', 'next_state', 'reward', 'done'))
-steps_done = 0
-episode_durations = []
+
+
 
 BATCH_SIZE = 32
 GAMMA = 0.99
@@ -45,7 +45,7 @@ REWARD_BUFFER_SIZE = 100
 MEMORY_SIZE = 50000
 NUM_EPISODES = 30000000
 EPISODE_STEP_LIMIT = 10000
-FLAG = 0
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 writer = SummaryWriter()
@@ -66,11 +66,10 @@ class Agent_DQN(Agent):
         ###########################
         # YOUR IMPLEMENTATION HERE #
         self.memory = []
-        self.position = 0
         self.env = env
         self.n_actions = env.env.action_space.n
-        self.policy_net = DQN(4, self.n_actions).to(device)
-        self.target_net = DQN(4, self.n_actions).to(device)
+        self.policy_net = DQN(4, self.n_actions).to(device).float()
+        self.target_net = DQN(4, self.n_actions).to(device).float()
         # self.policy_net.load_state_dict(torch.load("best_weights_model.pt"))
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.eps_threshold = EPS_START
@@ -78,9 +77,9 @@ class Agent_DQN(Agent):
         self.test_count = 0
         self.max_reward = 0
         self.max_reward_so_far = 0
-        self.mean = 0
         self.reward_buffer = []
         self.flag = 0
+        self.steps_done = 0
         # self.target_net.eval()
 
         self.test_mean_reward = 0
@@ -123,34 +122,25 @@ class Agent_DQN(Agent):
         
         if not test:
             # print("Helllo")
-            global steps_done
-            n_actions = self.env.action_space.n
+            # global steps_done
+            
             sample = random.random()
-            # self.eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
+
             self.eps_threshold = self.eps_threshold -  (EPS_START - EPS_END) / EPS_DECAY
-            steps_done += 1
-            # print("Steps after increment ", steps_done)
+            
+            if self.eps_threshold < EPS_END:
+                self.eps_threshold = EPS_END
+            # print("Steps after increment ", self.steps_done)
             if sample > self.eps_threshold:
                 with torch.no_grad():
-                    # print(torch.from_numpy(observation).size())
-                    # observation_tensor_required = observation
-                    # print(observation.size())
                     
                     q_sa = self.policy_net( torch.from_numpy(observation).unsqueeze(0).to(device))
-
                     index = torch.argmax(q_sa.data,dim=1).item()
-                    # print(observation_tensor_required.size(),type(observation_tensor_required))
-                    # return self.policy_net(observation_tensor_required.to(device)).max(1)[1].view(1, 1)
 
                     return index
             else:
-                return np.random.randint(0, n_actions)
-        else:
-
-            # observation_tensor_required = observation
-            # observation_tensor_required = observation_tensor_required.permute(0,3,1,2)
-            # return self.policy_net(observation_tensor_required.to(device)).max(1)[1].view(1, 1)
-            
+                return np.random.randint(0, self.n_actions)
+        else:            
             q_sa = self.policy_net( torch.from_numpy(observation).unsqueeze(0).to(device))
             index = torch.argmax(q_sa.data,dim=1).item()
 
@@ -172,6 +162,9 @@ class Agent_DQN(Agent):
         if len(self.memory) > MEMORY_SIZE:
             self.memory.pop(0)
         self.memory.append(Transition(*args))
+
+        if(len(self.memory)%500==0):
+            print("Memory size : ", len(self.memory))
         ###########################
         
         
@@ -208,6 +201,8 @@ class Agent_DQN(Agent):
             for t in range (EPISODE_STEP_LIMIT):
                 # Render here
                 # self.env.env.render()
+                self.steps_done += 1
+
                 action = self.make_action(state, False)
                 # 'Transition',('state', 'action', 'next_state', 'reward', 'done'))
                     
@@ -226,7 +221,7 @@ class Agent_DQN(Agent):
 
                 # Update the target network, copying all weights and biases in DQN
                 # print("Steps : ",steps_done)
-                if steps_done % TARGET_UPDATE == 0:
+                if self.steps_done % TARGET_UPDATE == 0:
                     print("**********Updating Target********")
                     self.target_net.load_state_dict(self.policy_net.state_dict())
 
@@ -239,7 +234,7 @@ class Agent_DQN(Agent):
                         print("Crossed 10000")
                         self.flag = 1
                     batch = self.replay_buffer(BATCH_SIZE)
-
+                    
                     # 'Transition',('state', 'action', 'next_state', 'reward', 'done'))
                     state_batch = torch.from_numpy(np.asarray(batch[0]))
                     action_batch = torch.from_numpy(np.asarray(batch[1]))
@@ -254,7 +249,9 @@ class Agent_DQN(Agent):
                     q_max[done_batch] = 0
 
                     expected_state_action_values = (q_max) + reward_batch
+                    #print (state_action_values.double().size())
 
+                    #print (expected_state_action_values.double().size())
                     loss = F.smooth_l1_loss(state_action_values.double(), expected_state_action_values.double())
                    
                     current_loss = loss
@@ -276,7 +273,7 @@ class Agent_DQN(Agent):
             
             if(i_episode%500 == 0):
                 env2 = env('BreakoutNoFrameskip-v4', self.args, atari_wrapper=True, test=True)
-                test(self, env2, total_episodes=100)
+                #test(self, env2, total_episodes=100)
                 writer.add_scalar('Test Mean Reward', self.test_mean_reward, i_episode)
                 if self.test_mean_reward > self.max_reward_so_far :
                     torch.save(self.policy_net.state_dict(), "best_weights_model.pt")
