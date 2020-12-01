@@ -96,7 +96,6 @@ class DQN(nn.Module):
         # # print("After Linear 2 ", x.size())
         # return x
 
-        # RISHABH IMPLEMENTATION HERE #
         # print ('Neural network Input shape : ', x.size())
         # print(x, type(x))
         x = x.float()/255.0

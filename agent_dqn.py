@@ -91,7 +91,7 @@ class Agent_DQN(Agent):
             print('loading trained model')
             ###########################
             # YOUR IMPLEMENTATION HERE #
-            self.policy_net.load_state_dict(torch.load("saved_model.pt"))
+            self.policy_net.load_state_dict(torch.load("best_weights_model.pt",map_location=torch.device('cpu')))
             
 
     def init_game_setting(self):
@@ -119,7 +119,7 @@ class Agent_DQN(Agent):
         """
         ###########################
         # YOUR IMPLEMENTATION HERE #
-        
+        observation = np.transpose(observation,(2,0,1))
         if not test:
             # print("Helllo")
             # global steps_done
@@ -195,7 +195,7 @@ class Agent_DQN(Agent):
             # last_screen = get_screen()
             # current_screen = get_screen()
             state = self.env.reset()
-            state = np.transpose(state,(2,0,1))
+            # state = np.transpose(state,(2,0,1)) #New
             # state = torch.tensor([state])
             episode_Reward = 0.0
             for t in range (EPISODE_STEP_LIMIT):
@@ -209,7 +209,7 @@ class Agent_DQN(Agent):
                 next_state, reward, done, _ = self.env.step(action)
                 episode_Reward += reward
                 
-
+                state = np.transpose(state,(2,0,1)) #New
                 next_state = np.transpose(next_state,(2,0,1))
                 self.transition = (state, action, next_state, reward, done)
                 self.push()

@@ -10,6 +10,7 @@ import numpy as np
 from environment import Environment
 
 seed = 11037
+seed = 1106
 
 def parse():
     parser = argparse.ArgumentParser(description="DS595/CS525 RL Project 3")
@@ -35,8 +36,8 @@ def test(agent, env, total_episodes=30):
 
         #playing one game
         while(not done):
-            # env.render()
-            state = np.transpose(state,(2,0,1))
+            env.env.render()
+            # state = np.transpose(state,(2,0,1))
             action = agent.make_action(state, test=True)
             state, reward, done, info = env.step(action)
             episode_reward += reward
@@ -44,7 +45,7 @@ def test(agent, env, total_episodes=30):
         rewards.append(episode_reward)
 
 
-    # env.close()
+    env.env.close()
     agent.test_mean_reward = np.mean(rewards)
     print('Run %d episodes'%(total_episodes))
     print('Mean:', np.mean(rewards))
